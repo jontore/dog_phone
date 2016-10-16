@@ -1,18 +1,21 @@
-
-#include <LVoiceCall>
-#include <LSMS>
-#include <LGPS>
-#include <LCheckSim.h>
+#include <LCheckSIM.h>
+#include <LGSM.h>
+#include <LGPS.h>
 #include <string.h>
 #include <stdio.h>
+#include <LBattery.h>
 
-
-#define YOUR_NUMBER
+#define YOUR_NUMBER ""
+#define YOUR_SECOND_NUMBER ""
 #define SOUND_SENSOR A3
 #define MAX_NOISE 1500
+#define NOISE_LIMIT 350
+#define BATTERY_COUNTER 10000
 
 char num[20] = {0};
 char buf_contex[100];
+int noiseLevel = 0;
+int batteryCount = BATTERY_COUNTER;
 
 //Set up
 void setup()
@@ -72,13 +75,13 @@ void sendSMS() {
   LSMS.flush();
 }
 
-void sendNoiseAlert(noiseLevel) {
+void sendNoiseAlert(int noiseLevel, const char* number) {
   char buffer[100] = {0,};
   if(LSMS.ready())
   {
       sprintf(buffer, "NOISY %d", noiseLevel);
 
-      LSMS.beginSMS(YOUR_NUMBER);
+      LSMS.beginSMS(number);
       LSMS.print(buffer);
 
       if(LSMS.endSMS()) Serial.println("SMS sent ok!");
@@ -86,33 +89,66 @@ void sendNoiseAlert(noiseLevel) {
   }
 }
 
+void sendBatteryAlert(const char* number) {
+  char buffer[100] = {0,};
+  if(LSMS.ready())
+  {
+      sprintf(buffer, "Battery %d", LBattery.level());
+
+      LSMS.beginSMS(number);
+      LSMS.print(buffer);
+
+      if(LSMS.endSMS()) Serial.println("SMS sent ok!");
+      else Serial.println("SMS send fail!");
+  }
+}
+
+boolean isBatteryLow() {
+  return LBattery.level() < 5;
+}
+
 int calculateNoiseLevel() {
   long sum = analogRead(SOUND_SENSOR);
 
-  if(sum > 200) {
-    return = 10;
+  if(sum > NOISE_LIMIT) {
+    return  10;
   } else {
     return -1;
   }
 }
 
-int noiseLevel = 0;
 void loop()
 {
-    if(isRinging) {
+    if(isRinging()) {
       answerCall();
     }
 
     if(hasSMS()) {
-      sendSMS()
+      sendSMS();
     }
 
     noiseLevel += calculateNoiseLevel();
 
-    if(noiseLevel > MAX_NOISE) {
-      sendNoiseAlert();
+    if (noiseLevel < 0) {
       noiseLevel = 0;
     }
 
+    if(noiseLevel > MAX_NOISE) {
+      sendNoiseAlert(noiseLevel, YOUR_NUMBER);
+      sendNoiseAlert(noiseLevel, YOUR_SECOND_NUMBER);
+      noiseLevel = 0;
+    }
+
+    if (isBatteryLow()) {
+      if (batteryCount == 0) {
+        sendBatteryAlert(YOUR_NUMBER);
+        batteryCount = BATTERY_COUNTER;
+      } else {
+        batteryCount--;
+      }
+    }
+
+    Serial.print("Noise");
+    Serial.println(noiseLevel);
     delay(100);
 }
