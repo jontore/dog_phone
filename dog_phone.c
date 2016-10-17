@@ -10,12 +10,13 @@
 #define SOUND_SENSOR A3
 #define MAX_NOISE 1500
 #define NOISE_LIMIT 350
-#define BATTERY_COUNTER 10000
+#define MESSAGE_COUNTER_RESET 300000
 
 char num[20] = {0};
 char buf_contex[100];
 int noiseLevel = 0;
-int batteryCount = BATTERY_COUNTER;
+int batteryCount = MESSAGE_COUNTER_RESET;
+int noiseCounter =  MESSAGE_COUNTER_RESET;
 
 //Set up
 void setup()
@@ -133,16 +134,21 @@ void loop()
       noiseLevel = 0;
     }
 
-    if(noiseLevel > MAX_NOISE) {
+    if(noiseLevel > MAX_NOISE && noiseCounter == 0) {
       sendNoiseAlert(noiseLevel, YOUR_NUMBER);
       sendNoiseAlert(noiseLevel, YOUR_SECOND_NUMBER);
       noiseLevel = 0;
+      noiseCounter = MESSAGE_COUNTER_RESET
+    }
+
+    if (noiseCounter > 0) {
+      noiseCounter--;
     }
 
     if (isBatteryLow()) {
       if (batteryCount == 0) {
         sendBatteryAlert(YOUR_NUMBER);
-        batteryCount = BATTERY_COUNTER;
+        batteryCount = MESSAGE_COUNTER_RESET;
       } else {
         batteryCount--;
       }
